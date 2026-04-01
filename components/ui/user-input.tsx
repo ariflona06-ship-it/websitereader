@@ -1,11 +1,13 @@
 "use client"
 
 import { Input } from "@/components/ui/input"
-import { useState } from "react"
 
-export default function UserInput() {
-  const [value, setValue] = useState("")
+interface UserInputProps {
+  value: string;
+  setValue: (value: string) => void;
+}
 
+export default function UserInput({ value, setValue }: UserInputProps) {
   return (
     <div className="w-full max-w-sm space-y-2">
       <Input
