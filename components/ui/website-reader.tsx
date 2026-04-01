@@ -421,6 +421,13 @@ export default function WebsiteReader({ onBack }: WebsiteReaderProps) {
         </div>
       </div>
 
+      {/* Footer */}
+      <footer className="relative z-10 border-t border-white/10 bg-white/5 backdrop-blur-sm py-6 mt-auto">
+        <div className="max-w-2xl mx-auto px-4 text-center text-slate-400 text-sm">
+          <p>© 2026 Created by Ajrin | Milpitas High School, California</p>
+        </div>
+      </footer>
+
       {/* Animations CSS */}
       <style jsx>{`
         @keyframes blob {
