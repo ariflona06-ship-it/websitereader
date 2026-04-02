@@ -3,79 +3,75 @@ import * as cheerio from 'cheerio';
 import { Groq } from 'groq-sdk';
 
 // Helper function to extract main article content intelligently
-function extractMainContent($: cheerio.CheerioAPI, html: string): string {
-    // Remove script, style, nav, footer, ads, and form elements
-    $('script').remove();
-    $('style').remove();
-    $('nav').remove();
-    $('footer').remove();
-    $('[data-ad-slot]').remove();
-    $('[data-ad]').remove();
-    $('form').remove();
-    $('[role="navigation"]').remove();
-    $('[role="complementary"]').remove();
-    $('.ad').remove();
-    $('.advertisement').remove();
-    $('.ads').remove();
+function extractMainContent($: cheerio.CheerioAPI): string {
+    // Remove known unwanted elements to avoid ads and navigational boilerplate
+    const removeSelectors = [
+        'script', 'style', 'nav', 'footer', 'aside', 'form',
+        '[data-ad-slot]', '[data-ad]', '[id*="ad"]', '[class*="ad"]',
+        '[class*="sponsor"]', '[class*="promo"]', '[class*="newsletter"]',
+        '[role="navigation"]', '[role="complementary"]',
+        '.ad', '.advertisement', '.ads', '.promo', '.sponsored'
+    ];
+    $(removeSelectors.join(',')).remove();
 
-    // Try to find article content using semantic HTML
-    let content = '';
-    
-    // Strategy 1: Look for <article> tag
-    const article = $('article').text().trim();
-    if (article.length > 500) {
-        content = article;
-    }
-    
-    // Strategy 2: Look for main content container (common patterns)
-    if (!content) {
-        const mainContent = $('main').text().trim();
-        if (mainContent.length > 500) {
-            content = mainContent;
+    // Collect candidate content sources and score them by length
+    const contentCandidates: string[] = [];
+    const addCandidate = (text: string) => {
+        const trimmed = text.replace(/\s+/g, ' ').trim();
+        if (trimmed.length > 200 && !isLikelyBoilerplate(trimmed)) {
+            contentCandidates.push(trimmed);
         }
+    };
+
+    addCandidate($('article').text());
+    addCandidate($('main').text());
+
+    const contentSelectors = [
+        '[data-testid="article"]',
+        '.article-body',
+        '.post-content',
+        '.entry-content',
+        '[data-article-body-container]',
+        '.story-body',
+        '.article-content',
+        '.content-body',
+        '#main-content',
+        '.bbc-1wj2q5f-ArticleWrapper'
+    ];
+
+    for (const selector of contentSelectors) {
+        addCandidate($(selector).text());
     }
-    
-    // Strategy 3: Look for common article container classes
-    if (!content) {
-        const contentSelectors = [
-            '[data-testid="article"]',
-            '.article-body',
-            '.post-content',
-            '.entry-content',
-            '[data-article-body-container]',
-            '.story-body',
-            '.article-content',
-            '.content-body'
-        ];
-        
-        for (const selector of contentSelectors) {
-            const found = $(selector).text().trim();
-            if (found.length > 500) {
-                content = found;
-                break;
-            }
+
+    // Add all text from strong content tags as a broad fallback
+    const paragraphElements: string[] = [];
+    $('h1, h2, h3, h4, h5, p, li').each((_, elem) => {
+        const text = $(elem).text().trim();
+        if (text.length > 20 && !isLikelyBoilerplate(text)) {
+            paragraphElements.push(text);
         }
+    });
+
+    if (paragraphElements.length > 0) {
+        addCandidate(paragraphElements.join('\n\n'));
     }
-    
-    // Strategy 4: Extract all paragraphs and headings with good content density
+
+    // Choose the largest candidate to keep as complete content
+    let content = contentCandidates.sort((a, b) => b.length - a.length)[0] || '';
+
+    // Fallback to cleaned body text if no candidates found
     if (!content) {
-        const elements: string[] = [];
-        $('h1, h2, h3, p, article').each((_, elem) => {
-            const text = $(elem).text().trim();
-            if (text.length > 20 && !isLikelyBoilerplate(text)) {
-                elements.push(text);
-            }
-        });
-        content = elements.join('\n\n');
-    }
-    
-    // Fallback: Get body text but with better filtering
-    if (!content) {
-        const bodyText = $('body').text().trim();
+        const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
         content = bodyText;
     }
-    
-    return content.slice(0, 5000);
+
+    // Reduce in length to avoid sending too huge payload but keep as much as reasonably possible
+    const maxLength = 16000;
+    if (content.length > maxLength) {
+        content = content.slice(0, maxLength);
+    }
+
+    return content;
 }
 
 // Helper to detect boilerplate content
@@ -144,7 +140,12 @@ export async function POST(req: Request) {
             messages: [
                 {
                     role: 'user',
-                    content: `Please summarize the following website content in 3-4 paragraphs in detail, explaining what exactly the content is trying to convey:\n\n${mainContent}`
+                    content: `You are a precise summarization assistant. Read the content below (already cleaned, no ads, no boilerplate) and create one detailed summary that includes all important ideas, events, and named entities (including lists of items when present).
+- Do NOT invent content not in the text.
+- For "list" articles (like top shows), include each item with its key detail.
+- Keep the summary complete and faithful.
+- Avoid skipping minor yet meaningful points.
+\nContent:\n\n${mainContent}`
                 }
             ]
         });
