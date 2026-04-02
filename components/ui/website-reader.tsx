@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "./button";
 import { Input } from "./input";
-import { ChevronRight, Loader, Check, Send, ArrowLeft } from "lucide-react";
+import { ChevronRight, Loader, Check, Send, ArrowLeft, CircleQuestionMark } from "lucide-react";
 
 type Step = "url-input" | "processing" | "success" | "asking";
 type ProcessingStage = "fetching" | "extracting" | "summarizing" | "complete";
@@ -21,6 +21,7 @@ export default function WebsiteReader({ onBack }: WebsiteReaderProps) {
   const [questionLoading, setQuestionLoading] = useState(false);
   const [answers, setAnswers] = useState<Array<{ q: string; a: string }>>([]);
   const [error, setError] = useState("");
+  const [showHelp, setShowHelp] = useState(false);
 
   const processingMessages = {
     fetching: "🌐 Fetching website content...",
@@ -124,6 +125,57 @@ export default function WebsiteReader({ onBack }: WebsiteReaderProps) {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden">
+      {/* Help icon (fixed top-right) */}
+      <button
+        onClick={() => setShowHelp(true)}
+        className="fixed top-4 right-4 z-50 h-12 w-12 rounded-full bg-blue-500/80 text-white shadow-lg hover:bg-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        aria-label="Open help manual"
+      >
+        <CircleQuestionMark className="h-6 w-6 m-auto" />
+      </button>
+
+      {/* Help modal */}
+      {showHelp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="max-w-lg w-full rounded-2xl bg-slate-900 border border-white/20 p-6 text-left shadow-2xl">
+            <div className="flex justify-between items-start">
+              <h2 className="text-xl font-bold text-white">Website Reader Help</h2>
+              <button
+                onClick={() => setShowHelp(false)}
+                className="text-slate-300 hover:text-white"
+                aria-label="Close help modal"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="mt-3 text-slate-300 text-sm leading-relaxed">
+              Use this tool to fetch, extract, and summarize website content, then ask follow-up questions based on the summary.
+            </p>
+            <ul className="mt-3 list-disc pl-5 text-slate-300 text-sm space-y-1">
+              <li>Enter a URL and click "Analyze Website".</li>
+              <li>Wait for the system to fetch, extract, and summarize the page.</li>
+              <li>Use the question box to ask specific follow up questions.</li>
+            </ul>
+            <div className="mt-4 rounded-lg bg-slate-800 p-3 border border-white/10 text-slate-200 text-sm">
+              <strong>What makes this better?</strong>
+              <p className="mt-1">
+                This is built with Retrieval-Augmented Generation (RAG): the app fetches the page content first and then queries the model with that exact content.
+                That means responses are grounded in real data, not just hallucinations.
+              </p>
+              <p className="mt-2">
+                RAG helps reduce hallucination compared to generic generative AI that tries to answer without seeing the source. This makes answers more accurate and reliable.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowHelp(false)}
+              className="mt-5 w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-2 rounded-lg"
+            >
+              Close Help
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Animated background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
